@@ -13,9 +13,13 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- task: GitVersion@5
+- task: gitversion/setup@0
+  displayName: Install GitVersion
   inputs:
-    runtime: 'core'
+    versionSpec: '5.x'
+
+  - task: gitversion/execute@0
+    displayName: Determine Version
 
 - task: DotNetCoreCLI@2
   inputs:
@@ -26,7 +30,8 @@ steps:
   inputs:
     command: 'pack'
     packagesToPack: '**/AspNetCore.Identity.DocumentDb.csproj'
-    versioningScheme: 'off'
+    versioningScheme: byEnvVar
+    versionEnvVar: GitVersion.NuGetVersion 
 
 - task: DotNetCoreCLI@2
   inputs:
