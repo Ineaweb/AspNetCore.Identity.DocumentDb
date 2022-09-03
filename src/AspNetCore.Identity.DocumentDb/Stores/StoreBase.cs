@@ -1,4 +1,5 @@
-﻿using Microsoft.Azure.Documents;
+﻿using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Extensions.Options;
 using System;
@@ -12,18 +13,16 @@ namespace AspNetCore.Identity.DocumentDb.Stores
     {
         protected bool disposed = false;
 
-        protected IDocumentClient documentClient;
+        protected CosmosClient documentClient;
         protected DocumentDbOptions options;
         protected Uri collectionUri;
         protected string collectionName;
 
-        protected StoreBase(IDocumentClient documentClient, IOptions<DocumentDbOptions> options, string collectionName)
+        protected StoreBase(CosmosClient documentClient, IOptions<DocumentDbOptions> options, string collectionName)
         {
             this.documentClient = documentClient;
             this.options = options.Value;
             this.collectionName = collectionName;
-
-            this.collectionUri = UriFactory.CreateDocumentCollectionUri(this.options.Database, collectionName);
         }
 
         protected virtual void ThrowIfDisposed()
@@ -32,11 +31,6 @@ namespace AspNetCore.Identity.DocumentDb.Stores
             {
                 throw new ObjectDisposedException(GetType().Name);
             }
-        }
-
-        protected Uri GenerateDocumentUri(string documentId)
-        {
-            return UriFactory.CreateDocumentUri(options.Database, collectionName, documentId);
         }
     }
 }

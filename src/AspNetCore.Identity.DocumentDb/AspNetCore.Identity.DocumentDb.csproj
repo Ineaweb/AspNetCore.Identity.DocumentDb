@@ -6,8 +6,8 @@
     <AssemblyTitle>CodeKoenig.AspNetCore.Identity.DocumentDb</AssemblyTitle>
     <VersionPrefix>2.0.0</VersionPrefix>
     <Authors></Authors>
-    <TargetFrameworks>netstandard2.1</TargetFrameworks>
-    <AssemblyName>CodeKoenig.AspNetCore.Identity.DocumentDb</AssemblyName>
+    <TargetFrameworks>netstandard2.1;net6.0</TargetFrameworks>
+    <AssemblyName>Ineaweb.AspNetCore.Identity.DocumentDb</AssemblyName>
     <PackageId>Ineaweb.AspNetCore.Identity.DocumentDb</PackageId>
     <PackageTags>DocumentDB;Cosmos DB;CosmosDB;AspNetCore;AspNet;Membership;Identity;Core;AspNetCore.Identity.DocumentDb</PackageTags>
     <PackageReleaseNotes>Now supports .NET Core 3.1 and NETStandard 2.1 two factor authentication.</PackageReleaseNotes>
@@ -22,9 +22,13 @@
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
   </PropertyGroup>
   
-  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
-    <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.10.1" />
-    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="3.1.2" />
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="6.0.8" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.6.1" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.30.1" />
   </ItemGroup>
 
   <PropertyGroup>

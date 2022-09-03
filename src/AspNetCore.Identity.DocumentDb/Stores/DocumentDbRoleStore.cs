@@ -10,6 +10,8 @@ using Microsoft.Azure.Documents;
 using System.Security.Claims;
 using System.Net;
 using AspNetCore.Identity.DocumentDb.Tools;
+using Microsoft.Azure.Cosmos;
+using System.Timers;
 
 namespace AspNetCore.Identity.DocumentDb.Stores
 {
@@ -25,12 +27,9 @@ namespace AspNetCore.Identity.DocumentDb.Stores
         /// </summary>
         /// <param name="documentClient">The DocumentDb client to be used</param>
         /// <param name="options">The configuraiton options for the <see cref="IDocumentClient"/></param>
-        public DocumentDbRoleStore(IDocumentClient documentClient, IOptions<DocumentDbOptions> options)
+        public DocumentDbRoleStore(CosmosClient documentClient, IOptions<DocumentDbOptions> options)
             : base(documentClient, options, options.Value.RoleStoreDocumentCollection ?? options.Value.UserStoreDocumentCollection)
         {
-            collectionUri = UriFactory.CreateDocumentCollectionUri(
-                this.options.Database, 
-                this.options.RoleStoreDocumentCollection ?? this.options.UserStoreDocumentCollection);
         }
 
         public Task<IList<Claim>> GetClaimsAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
@@ -102,7 +101,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 role.Id = Guid.NewGuid().ToString();
             }
 
-            ResourceResponse<Document> result = await documentClient.CreateDocumentAsync(collectionUri, role);
+            ItemResponse<TRole> result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).CreateItemAsync(role);
 
             return result.StatusCode == HttpStatusCode.Created
                 ? IdentityResult.Success
@@ -121,9 +120,9 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                ResourceResponse<Document> result = await documentClient.ReplaceDocumentAsync(GenerateDocumentUri(role.Id), document: role);
+                ItemResponse<TRole> result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReplaceItemAsync(role, role.Id);
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -141,7 +140,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
 
-            ResourceResponse<Document> result;
+            ItemResponse<TRole> result;
 
             if (role == null)
             {
@@ -150,9 +149,9 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                result = await documentClient.DeleteDocumentAsync(GenerateDocumentUri(role.Id));
+                result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(id: role.Id, partitionKey: new PartitionKey(typeof(TRole).Name));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -253,10 +252,8 @@ namespace AspNetCore.Identity.DocumentDb.Stores
             {
                 throw new ArgumentNullException(nameof(roleId));
             }
-
-            TRole role = await documentClient.ReadDocumentAsync<TRole>(GenerateDocumentUri(roleId));
-
-            return role;
+            ItemResponse<TRole> role = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TRole>(roleId, new PartitionKey(typeof(TRole).Name));
+            return role.Resource;
         }
 
         public Task<TRole> FindByNameAsync(string normalizedRoleName, CancellationToken cancellationToken)
@@ -269,7 +266,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(normalizedRoleName));
             }
 
-            TRole role = documentClient.CreateDocumentQuery<TRole>(collectionUri)
+            TRole role = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TRole>()
                 .Where(r => r.NormalizedName == normalizedRoleName && r.DocumentType == typeof(TRole).Name)
                 .AsEnumerable()
                 .FirstOrDefault();

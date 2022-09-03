@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Azure.Documents;
 using System.Net;
 using AspNetCore.Identity.DocumentDb.Tools;
+using Microsoft.Azure.Cosmos;
 
 namespace AspNetCore.Identity.DocumentDb.Stores
 {
@@ -26,7 +27,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
         /// <param name="documentClient">The DocumentDb client to be used</param>
         /// <param name="options">The configuraiton options for the <see cref="IDocumentClient"/></param>
         /// <param name="roleStore">The <see cref="IRoleStore{TRole}"/> to be used for storing and retrieving roles for the user</param>
-        public DocumentDbUserStore(IDocumentClient documentClient, IOptions<DocumentDbOptions> options, IRoleStore<DocumentDbIdentityRole> roleStore)
+        public DocumentDbUserStore(CosmosClient documentClient, IOptions<DocumentDbOptions> options, IRoleStore<DocumentDbIdentityRole> roleStore)
             : base(documentClient, options, roleStore)
         {
         }
@@ -64,7 +65,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
         /// <param name="documentClient">The DocumentDb client to be used</param>
         /// <param name="options">The configuraiton options for the <see cref="IDocumentClient"/></param>
         /// <param name="roleStore">The <see cref="IRoleStore{TRole}"/> to be used for storing and retrieving roles for the user</param>
-        public DocumentDbUserStore(IDocumentClient documentClient, IOptions<DocumentDbOptions> options, IRoleStore<TRole> roleStore)
+        public DocumentDbUserStore(CosmosClient documentClient, IOptions<DocumentDbOptions> options, IRoleStore<TRole> roleStore)
             : base(documentClient, options, options.Value.UserStoreDocumentCollection)
         {
             this.roleStore = roleStore;
@@ -86,7 +87,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 user.Id = Guid.NewGuid().ToString();
             }
 
-            ResourceResponse<Document> result = await documentClient.CreateDocumentAsync(collectionUri, user);
+           ItemResponse<TUser> result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).CreateItemAsync(user);
 
             return result.StatusCode == HttpStatusCode.Created
                 ? IdentityResult.Success
@@ -105,9 +106,9 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                await documentClient.DeleteDocumentAsync(GenerateDocumentUri(user.Id));
+                await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(user.Id, new PartitionKey(typeof(TUser).Name));
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -130,7 +131,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(userId));
             }
 
-            TUser foundUser = await documentClient.ReadDocumentAsync<TUser>(GenerateDocumentUri(userId));
+            TUser foundUser = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TUser>(userId, new PartitionKey(typeof(TUser).Name));
 
             return foundUser;
         }
@@ -145,7 +146,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(normalizedUserName));
             }
 
-            TUser foundUser = documentClient.CreateDocumentQuery<TUser>(collectionUri)
+            TUser foundUser = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
                 .Where(u => u.NormalizedUserName == normalizedUserName && u.DocumentType == typeof(TUser).Name)
                 .AsEnumerable()
                 .FirstOrDefault();
@@ -244,9 +245,9 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                await documentClient.ReplaceDocumentAsync(GenerateDocumentUri(user.Id), document: user);
+                await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReplaceItemAsync(user, user.Id);
             }
-            catch (DocumentClientException dce)
+            catch (CosmosException dce)
             {
                 if (dce.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -359,7 +360,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(claim));
             }
 
-            var result = documentClient.CreateDocumentQuery<TUser>(collectionUri)
+            var result = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
                 .SelectMany(u => u.Claims
                     .Where(c => c.Type == claim.Type && c.Value == claim.Value)
                     .Select(c => u)
@@ -446,7 +447,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(loginProvider));
             }
 
-            TUser user = documentClient.CreateDocumentQuery<TUser>(collectionUri)
+            TUser user = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
                 .SelectMany(u => u.Logins
                     .Where(l => l.LoginProvider == loginProvider && l.ProviderKey == providerKey)
                     .Select(l => u)
@@ -551,7 +552,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(normalizedRoleName));
             }
 
-            var result = documentClient.CreateDocumentQuery<TUser>(collectionUri)
+            var result = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
                 .SelectMany(u => u.Roles
                     .Where(r => r.NormalizedName == normalizedRoleName)
                     .Select(r => u)
@@ -784,7 +785,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(normalizedEmail));
             }
 
-            TUser user = documentClient.CreateDocumentQuery<TUser>(collectionUri)
+            TUser user = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
                 .Where(u => u.NormalizedEmail == normalizedEmail && u.DocumentType == typeof(TUser).Name)
                 .AsEnumerable()
                 .FirstOrDefault();
