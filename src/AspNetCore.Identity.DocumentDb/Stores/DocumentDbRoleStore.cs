@@ -149,7 +149,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(id: role.Id, partitionKey: new PartitionKey(typeof(TRole).Name));
+                result = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(id: role.Id, partitionKey: PartitionKey.Null);
             }
             catch (CosmosException dce)
             {
@@ -252,7 +252,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
             {
                 throw new ArgumentNullException(nameof(roleId));
             }
-            ItemResponse<TRole> role = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TRole>(roleId, new PartitionKey(typeof(TRole).Name));
+            ItemResponse<TRole> role = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TRole>(roleId, PartitionKey.Null);
             return role.Resource;
         }
 

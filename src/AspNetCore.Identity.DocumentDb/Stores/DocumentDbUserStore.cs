@@ -106,7 +106,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
 
             try
             {
-                await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(user.Id, new PartitionKey(typeof(TUser).Name));
+                await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).DeleteItemAsync<TRole>(user.Id, PartitionKey.Null);
             }
             catch (CosmosException dce)
             {
@@ -121,7 +121,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
             return IdentityResult.Success;
         }
 
-        public async Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken)
+        public Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfDisposed();
@@ -131,9 +131,14 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(userId));
             }
 
-            TUser foundUser = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TUser>(userId, new PartitionKey(typeof(TUser).Name));
+            //TUser foundUser = await documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).ReadItemAsync<TUser>(userId, PartitionKey.Null);
+            TUser foundUser = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>(allowSynchronousQueryExecution: true)
+                .Where(u => u.Id == userId && u.DocumentType == typeof(TUser).Name)
+                .AsEnumerable()
+                .FirstOrDefault();
 
-            return foundUser;
+
+            return Task.FromResult(foundUser);
         }
 
         public Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
@@ -146,7 +151,7 @@ namespace AspNetCore.Identity.DocumentDb.Stores
                 throw new ArgumentNullException(nameof(normalizedUserName));
             }
 
-            TUser foundUser = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>()
+            TUser foundUser = documentClient.GetDatabase(this.options.Database).GetContainer(collectionName).GetItemLinqQueryable<TUser>(allowSynchronousQueryExecution: true)
                 .Where(u => u.NormalizedUserName == normalizedUserName && u.DocumentType == typeof(TUser).Name)
                 .AsEnumerable()
                 .FirstOrDefault();

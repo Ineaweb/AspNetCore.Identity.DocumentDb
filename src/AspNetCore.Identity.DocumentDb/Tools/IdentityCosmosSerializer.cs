@@ -13,6 +13,7 @@ namespace AspNetCore.Identity.DocumentDb.Tools
     {
         private static readonly Encoding DefaultEncoding = new UTF8Encoding(false, true);
         private readonly JsonSerializerSettings _serializerSettings;
+        private readonly JsonSerializer _serializer;
 
         /// <summary>
         /// Create a serializer that uses the JSON.net serializer
@@ -21,6 +22,10 @@ namespace AspNetCore.Identity.DocumentDb.Tools
         {
             _serializerSettings = jsonSerializerSettings ??
                   throw new ArgumentNullException(nameof(jsonSerializerSettings));
+            _serializer = new JsonSerializer
+            {
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            };
         }
 
         /// <summary>
@@ -42,8 +47,7 @@ namespace AspNetCore.Identity.DocumentDb.Tools
                 {
                     using (var jsonTextReader = new JsonTextReader(sr))
                     {
-                        var jsonSerializer = GetSerializer();
-                        return jsonSerializer.Deserialize<T>(jsonTextReader);
+                        return _serializer.Deserialize<T>(jsonTextReader);
                     }
                 }
             }
@@ -63,8 +67,7 @@ namespace AspNetCore.Identity.DocumentDb.Tools
                 using (JsonWriter writer = new JsonTextWriter(streamWriter))
                 {
                     writer.Formatting = Formatting.None;
-                    var jsonSerializer = GetSerializer();
-                    jsonSerializer.Serialize(writer, input);
+                    _serializer.Serialize(writer, input);
                     writer.Flush();
                     streamWriter.Flush();
                 }
@@ -74,13 +77,5 @@ namespace AspNetCore.Identity.DocumentDb.Tools
             return streamPayload;
         }
 
-        /// <summary>
-        /// JsonSerializer has hit a race conditions with custom settings that cause null reference exception.
-        /// To avoid the race condition a new JsonSerializer is created for each call
-        /// </summary>
-        private JsonSerializer GetSerializer()
-        {
-            return JsonSerializer.Create(_serializerSettings);
-        }
     }
 }
